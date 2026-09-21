@@ -2,7 +2,7 @@ const http=require("http");
 const crypto=require("crypto");
 const fs=require("fs");
 const path=require("path");
-const PORT=process.env.PORT||8080, VERSION="1.1.0", started=Date.now();
+const PORT=process.env.PORT||8080, VERSION="1.2.0", started=Date.now();
 const MODEL_PATH=process.env.APEX_MODEL||path.join(__dirname,"models","apex-bootstrap.apex.json");
 let model=null, modelError=null;
 try{const d=JSON.parse(fs.readFileSync(MODEL_PATH,"utf8"));if(d.format!=="APEXMODEL1")throw new Error("invalid APEX model format");model=d;}catch(e){modelError=String(e.message||e);}
