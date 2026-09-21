@@ -1,0 +1,36 @@
+{
+  "product": "APEX LLM AI",
+  "state": "ARTIFACT_NOT_RETRIEVED",
+  "transitions": {
+    "ARTIFACT_NOT_RETRIEVED": {
+      "next": "RECOVERED",
+      "requires": ["exact_bytes", "sha256"]
+    },
+    "RECOVERED": {
+      "next": "INSPECTED",
+      "requires": ["archive_inventory", "runtime_identity", "model_identity"]
+    },
+    "INSPECTED": {
+      "next": "EXECUTABLE",
+      "requires": ["successful_real_runtime_start", "real_inference_response"]
+    },
+    "EXECUTABLE": {
+      "next": "SELF_HOSTED_VERIFIED",
+      "requires": ["provider_network_block_test", "no_silent_fallback"]
+    },
+    "SELF_HOSTED_VERIFIED": {
+      "next": "INDEPENDENTLY_VERIFIED",
+      "requires": ["independent_evaluator_result"]
+    },
+    "INDEPENDENTLY_VERIFIED": {
+      "next": "OFFICIAL_LEADERBOARD",
+      "requires": ["benchmark_operator_public_confirmation"]
+    }
+  },
+  "forbidden_transitions": [
+    "documentation_to_executable",
+    "historical_result_to_current_result",
+    "local_result_to_independent_verification",
+    "independent_result_to_official_leaderboard_without_operator_confirmation"
+  ]
+}
