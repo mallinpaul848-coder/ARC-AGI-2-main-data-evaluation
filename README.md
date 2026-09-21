@@ -4,12 +4,21 @@ This repository contains the independently callable verification service for APE
 
 ## Endpoints
 - GET /health
+- GET /v1/models
 - GET /v1/verify
+- POST /v1/chat/completions
 
-## Verification status
-The service is reproducible and version-controlled. A public deployment is still required before its results can be called an external evaluation.
+## Verification policy
+The runtime is **model-only** for inference and verification. Benchmark results must not be produced by a hidden arithmetic shortcut or local benchmark-answer table.
 
-The verification API currently tests the deterministic APEX reasoning layer. It is not presented as an official ARC-AGI leaderboard result.
+`/v1/verify` checks model loading, model provenance, SHA-256 identity, repeatability, and latency. It deliberately does **not** claim benchmark accuracy or leaderboard status.
 
-## Commit
-This repository is the source of truth for the verification service.
+`apex-run.js` records per-test output, expected value, correctness, latency, model hash, manifest hash, runtime, hardware, and deterministic sampling status.
+
+## Current model status
+The checked-in bootstrap artifact is intentionally small. It establishes a real APEX-owned local model artifact and inference path, but it does not establish frontier capability.
+
+Meaningful benchmark claims require a larger trained checkpoint and an independent evaluator using a frozen, disclosed task set.
+
+## Independence
+The checked-in runtime path does not require OpenAI, Hugging Face, Vercel, or another hosted inference provider.
