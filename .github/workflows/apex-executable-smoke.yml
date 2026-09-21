@@ -1,0 +1,27 @@
+name: APEX executable smoke verification
+on:
+  push:
+    paths:
+      - "apex-run.js"
+      - "APEX/smoke-manifest.json"
+      - "models/**"
+      - "server.js"
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Execute APEX smoke benchmark
+        run: node apex-run.js --manifest APEX/smoke-manifest.json --output apex-smoke-results.jsonl
+      - name: Validate seven cases
+        run: |
+          node -e "const fs=require('fs');const x=fs.readFileSync('apex-smoke-results.jsonl','utf8').trim().split('\n').map(JSON.parse);if(x.length!==7||x.some(t=>!t.correct))process.exit(1);console.log(JSON.stringify({count:x.length,correct:x.filter(t=>t.correct).length,errors:x.filter(t=>t.error).length},null,2))"
+      - name: Preserve raw evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-smoke-evidence
+          path: apex-smoke-results.jsonl
