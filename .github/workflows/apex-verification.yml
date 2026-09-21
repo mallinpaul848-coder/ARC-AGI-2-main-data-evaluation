@@ -1,0 +1,20 @@
+name: APEX Verification Structure
+
+on:
+  push:
+    paths:
+      - 'APEX/**'
+  pull_request:
+    paths:
+      - 'APEX/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate JSON artifacts
+        run: python -c "import json; [json.load(open(p,encoding='utf-8')) for p in ['APEX/benchmark-manifest.json','APEX/verification-schema.json','APEX/verification-report-template.json']]"
