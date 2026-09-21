@@ -4,13 +4,13 @@ const fs=require("fs");
 const path=require("path");
 
 const PORT=Number(process.env.PORT||8080);
-const VERSION="1.5.0";
+const VERSION="2.0.0";
 const started=Date.now();
 const MAX_BODY_BYTES=Math.max(1024,Number(process.env.APEX_MAX_BODY_BYTES||1048576));
 const MAX_TOKENS=Math.max(1,Math.min(Number(process.env.APEX_MAX_TOKENS||256),256));
 const REQUEST_TIMEOUT_MS=Math.max(1000,Number(process.env.APEX_REQUEST_TIMEOUT_MS||30000));
 const CORS_ORIGIN=process.env.APEX_CORS_ORIGIN||"*";
-const MODEL_PATH=process.env.APEX_MODEL||path.join(__dirname,"models","apex-bootstrap.apex.json");
+const MODEL_PATH=process.env.APEX_MODEL||path.join(__dirname,"models","apex-trained-128-transition-v2.apex.json");
 
 let model=null,modelError=null,MODEL_ID=null;
 try{
