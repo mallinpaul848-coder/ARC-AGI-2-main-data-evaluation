@@ -1,0 +1,50 @@
+{
+  "product": "APEX LLM AI",
+  "purpose": "Scale the model artifact without changing the platform API contract",
+  "stages": [
+    {
+      "id": "bootstrap",
+      "status": "complete",
+      "artifact": "models/apex-bootstrap.apex.json",
+      "role": "runtime and verification baseline"
+    },
+    {
+      "id": "small-trained",
+      "status": "next",
+      "target": "10K-100K parameters",
+      "requirements": [
+        "documented local corpus",
+        "deterministic training",
+        "held-out validation",
+        "APEXMODEL1 export",
+        "SHA-256 artifact"
+      ]
+    },
+    {
+      "id": "medium-trained",
+      "status": "planned",
+      "target": "100K-10M parameters",
+      "requirements": [
+        "versioned tokenizer",
+        "checkpoint manifests",
+        "training metrics",
+        "held-out evaluation",
+        "runtime load test"
+      ]
+    },
+    {
+      "id": "large-trained",
+      "status": "planned",
+      "target": "10M+ parameters",
+      "requirements": [
+        "documented architecture",
+        "reproducible training configuration",
+        "checkpoint lineage",
+        "quantization or precision record",
+        "capability benchmark suite",
+        "independent evaluation package"
+      ]
+    }
+  ],
+  "release_rule": "Never substitute metadata for actual trained parameters. Every claimed scale increase must correspond to a real hashed model artifact."
+}
