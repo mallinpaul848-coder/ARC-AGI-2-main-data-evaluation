@@ -1,0 +1,48 @@
+{
+  "product": "APEX LLM AI",
+  "pipeline": "APEX Independent Model Training",
+  "schema_version": "1.0.0",
+  "status": "configuration-template",
+  "objective": "Replace the bootstrap checkpoint with a substantially trained APEX checkpoint while preserving offline model-only inference.",
+  "model": {
+    "architecture": "APEX",
+    "checkpoint_format": "APEXMODEL1",
+    "deterministic_seed_required": true,
+    "parameter_count_required": true,
+    "context_length_required": true,
+    "vocabulary_manifest_required": true,
+    "precision_required": true
+  },
+  "data": {
+    "dataset_manifest_required": true,
+    "dataset_sha256_required": true,
+    "license_and_version_required": true,
+    "preprocessing_manifest_required": true,
+    "contamination_check_required": true
+  },
+  "training": {
+    "training_code_commit_required": true,
+    "hardware_record_required": true,
+    "immutable_checkpoint_hash_required": true,
+    "validation_split_required": true
+  },
+  "evaluation": {
+    "frozen_test_set_required": true,
+    "raw_outputs_required": true,
+    "accuracy_required": true,
+    "errors_required": true,
+    "timeouts_required": true,
+    "latency_percentiles_required": true,
+    "independent_evaluator_required_for_independent_status": true
+  },
+  "independence": {
+    "external_model_api_required": false,
+    "network_required_for_inference": false,
+    "hosted_inference_provider_required": false
+  },
+  "claims": {
+    "frontier_capability": false,
+    "official_leaderboard": false,
+    "independent_validation": false
+  }
+}
