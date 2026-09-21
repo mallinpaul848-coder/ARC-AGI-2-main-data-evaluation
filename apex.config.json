@@ -1,6 +1,6 @@
 {
   "name": "APEX LLM AI",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "architecture": "standalone-local-inference-service",
   "deterministic_inference": true,
   "provider_dependency": false,
@@ -10,6 +10,11 @@
   "model_artifact": "models/apex-bootstrap.apex.json",
   "model_format": "APEXMODEL1",
   "provenance": "local-model-artifact-sha256",
+  "verification_schema": "APEX-VERIFICATION-1",
+  "verification_commands": [
+    "npm run verify:runtime",
+    "npm run verify:smoke"
+  ],
   "endpoints": [
     "/health",
     "/v1/models",
