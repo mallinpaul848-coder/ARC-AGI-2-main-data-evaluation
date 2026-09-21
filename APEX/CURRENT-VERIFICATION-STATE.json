@@ -1,0 +1,33 @@
+{
+  "product": "APEX LLM AI",
+  "verification_state": "ARTIFACT_NOT_RETRIEVED",
+  "allowed_claims": [
+    "verification architecture exists",
+    "historical APEX records are documented",
+    "reproduction protocol is defined"
+  ],
+  "blocked_claims": [
+    "current benchmark score",
+    "current latency",
+    "independent verification",
+    "official leaderboard placement",
+    "proprietary model weights verified"
+  ],
+  "promotion_order": [
+    "ARTIFACT_NOT_RETRIEVED",
+    "RECOVERED",
+    "INSPECTED",
+    "EXECUTABLE",
+    "SELF_HOSTED_VERIFIED",
+    "INDEPENDENTLY_VERIFIED",
+    "OFFICIAL_LEADERBOARD"
+  ],
+  "promotion_requirements": {
+    "RECOVERED": ["exact_bytes", "sha256"],
+    "INSPECTED": ["archive_contents", "runtime_entrypoint", "model_artifact_identity"],
+    "EXECUTABLE": ["real_runtime_execution"],
+    "SELF_HOSTED_VERIFIED": ["network_block_test", "no_external_model_fallback"],
+    "INDEPENDENTLY_VERIFIED": ["independent_evaluator_attestation"],
+    "OFFICIAL_LEADERBOARD": ["benchmark_operator_public_result"]
+  }
+}
