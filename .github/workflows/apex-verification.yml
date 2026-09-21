@@ -10,6 +10,7 @@ on:
       - 'models/**'
       - 'package.json'
       - 'apex.config.json'
+      - '.github/workflows/apex-verification.yml'
   pull_request:
     paths:
       - 'APEX/**'
@@ -18,6 +19,7 @@ on:
       - 'models/**'
       - 'package.json'
       - 'apex.config.json'
+      - '.github/workflows/apex-verification.yml'
 
 jobs:
   verify:
@@ -25,7 +27,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -37,7 +38,18 @@ jobs:
 
       - name: Validate JSON artifacts
         run: |
-          node -e "for (const p of ['apex.config.json','models/apex-bootstrap.apex.json','APEX/benchmark-manifest.json','APEX/smoke-manifest.json','APEX/verification-schema.json','APEX/verification-report-template.json']) JSON.parse(require('fs').readFileSync(p,'utf8'))"
+          node - <<'NODE'
+          const fs=require('fs');
+          for (const p of [
+            'apex.config.json',
+            'models/apex-bootstrap.apex.json',
+            'APEX/benchmark-manifest.json',
+            'APEX/smoke-manifest.json',
+            'APEX/verification-schema.json',
+            'APEX/verification-report-template.json',
+            'APEX/TRAINING_CONFIG.json'
+          ]) JSON.parse(fs.readFileSync(p,'utf8'));
+          NODE
 
       - name: Start APEX local runtime
         run: |
@@ -61,7 +73,12 @@ jobs:
           if(h.status!=='ok'||!h.model_loaded) throw new Error('APEX health/model check failed');
           if(v.deterministic!==true||v.model_loaded!==true) throw new Error('APEX determinism/model verification failed');
           if(!v.model_hash_sha256) throw new Error('Missing model hash');
-          console.log(JSON.stringify({status:h.status,model:v.model,deterministic:v.deterministic,model_hash_sha256:v.model_hash_sha256},null,2));
+          console.log(JSON.stringify({
+            status:h.status,
+            model:v.model,
+            deterministic:v.deterministic,
+            model_hash_sha256:v.model_hash_sha256
+          },null,2));
           NODE
 
       - name: Run deterministic smoke benchmark
@@ -75,12 +92,48 @@ jobs:
           node - <<'NODE'
           const fs=require('fs');
           const summary=JSON.parse(fs.readFileSync('apex-smoke.jsonl.summary.json'));
-          for (const k of ['suite','tests','correct','accuracy','p50_ms','p95_ms','p99_ms','model_hash_sha256','manifest_hash_sha256','deterministic']) {
+          for (const k of [
+            'schema','source','tests','correct','errors','timeouts','accuracy',
+            'p50_ms','p95_ms','p99_ms','model','model_hash_sha256',
+            'manifest_hash_sha256','deterministic'
+          ]) {
             if (!(k in summary)) throw new Error('Missing summary field: '+k);
           }
-          if (summary.deterministic !== true) throw new Error('Smoke benchmark is not deterministic');
-          if (summary.tests !== 7) throw new Error('Unexpected smoke test count: '+summary.tests);
+          if(summary.schema!=='APEX-VERIFICATION-1') throw new Error('Unexpected verification schema');
+          if(summary.source!=='APEX_MODEL_ONLY') throw new Error('Unexpected inference source');
+          if(summary.deterministic!==true) throw new Error('Smoke benchmark is not deterministic');
+          if(summary.tests!==7) throw new Error('Unexpected smoke test count: '+summary.tests);
+          if(summary.errors!==0) throw new Error('Smoke benchmark execution errors: '+summary.errors);
+          if(!summary.model_hash_sha256||!summary.manifest_hash_sha256) throw new Error('Missing provenance hashes');
           console.log(JSON.stringify(summary,null,2));
+          NODE
+
+      - name: Offline inference acceptance test
+        run: |
+          node - <<'NODE'
+          const http=require('http');
+          function post(body){
+            return new Promise((resolve,reject)=>{
+              const req=http.request({
+                host:'127.0.0.1',port:8080,path:'/v1/chat/completions',
+                method:'POST',headers:{'content-type':'application/json'}
+              },res=>{
+                let s='';res.on('data',d=>s+=d);res.on('end',()=>{
+                  if(res.statusCode!==200) return reject(new Error('HTTP '+res.statusCode+' '+s));
+                  resolve(JSON.parse(s));
+                });
+              });
+              req.on('error',reject);req.end(JSON.stringify(body));
+            });
+          }
+          (async()=>{
+            const body={model:'apex-bootstrap',messages:[{role:'user',content:'APEX offline deterministic probe'}],temperature:0};
+            const a=await post(body),b=await post(body);
+            const ao=a.choices?.[0]?.message?.content,bo=b.choices?.[0]?.message?.content;
+            if(typeof ao!=='string'||ao!==bo) throw new Error('Offline repeatability failed');
+            if(a.provenance?.source!=='APEX_MODEL_ONLY') throw new Error('Unexpected inference provenance');
+            console.log(JSON.stringify({repeatable:true,source:a.provenance.source,output_hash:require('crypto').createHash('sha256').update(ao).digest('hex')},null,2));
+          })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
       - name: Publish verification artifacts
