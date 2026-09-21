@@ -1,0 +1,43 @@
+{
+  "artifact": {
+    "name": "UNSET",
+    "sha256": "UNSET",
+    "bytes": null
+  },
+  "build": {
+    "version": "UNSET",
+    "commit": "UNSET"
+  },
+  "model": {
+    "id": "UNSET",
+    "weights_sha256": "UNSET",
+    "tokenizer_sha256": "UNSET"
+  },
+  "runtime": {
+    "id": "UNSET",
+    "version": "UNSET",
+    "hardware": "UNSET",
+    "os": "UNSET"
+  },
+  "benchmark": {
+    "name": "UNSET",
+    "version": "UNSET",
+    "test_count": 0
+  },
+  "results": {
+    "correct": 0,
+    "incorrect": 0,
+    "errors": 0,
+    "timeouts": 0,
+    "accuracy": null,
+    "p50_ms": null,
+    "p95_ms": null,
+    "p99_ms": null
+  },
+  "evidence": {
+    "raw_outputs_sha256": "UNSET",
+    "inputs_sha256": "UNSET",
+    "logs_sha256": "UNSET"
+  },
+  "status": "NOT_EXECUTED"
+}
