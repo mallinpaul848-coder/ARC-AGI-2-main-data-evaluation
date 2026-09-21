@@ -16,4 +16,4 @@ The repository therefore records no CI benchmark score until a real run produces
 A source file, workflow definition, or expected result is not execution evidence. A score becomes measured only after the workflow executes and produces the raw artifact.
 
 ## Current state
-WAITING_FOR_CI_EXECUTION_EVIDENCE
+CI_NOT_OBSERVED__LOCAL_EXECUTION_REQUIRED
