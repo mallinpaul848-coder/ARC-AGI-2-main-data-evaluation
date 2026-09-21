@@ -2,6 +2,7 @@ name: APEX executable smoke verification
 on:
   push:
     paths:
+      - ".github/workflows/apex-executable-smoke.yml"
       - "apex-run.js"
       - "APEX/smoke-manifest.json"
       - "models/**"
