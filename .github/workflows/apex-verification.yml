@@ -1,20 +1,82 @@
-name: APEX Verification Structure
+name: APEX Verification
 
 on:
   push:
     paths:
       - 'APEX/**'
+      - 'server.js'
+      - 'apex-run.js'
+      - 'models/**'
+      - 'package.json'
+      - 'apex.config.json'
   pull_request:
     paths:
       - 'APEX/**'
+      - 'server.js'
+      - 'apex-run.js'
+      - 'models/**'
+      - 'package.json'
+      - 'apex.config.json'
 
 jobs:
-  validate:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - uses: actions/setup-node@v4
         with:
-          python-version: '3.x'
+          node-version: '20'
+
+      - name: Validate runtime syntax
+        run: |
+          node --check server.js
+          node --check apex-run.js
+
       - name: Validate JSON artifacts
-        run: python -c "import json; [json.load(open(p,encoding='utf-8')) for p in ['APEX/benchmark-manifest.json','APEX/verification-schema.json','APEX/verification-report-template.json']]"
+        run: |
+          node -e "for (const p of ['apex.config.json','models/apex-bootstrap.apex.json','APEX/benchmark-manifest.json','APEX/smoke-manifest.json','APEX/verification-schema.json','APEX/verification-report-template.json']) JSON.parse(require('fs').readFileSync(p,'utf8'))"
+
+      - name: Start APEX local runtime
+        run: |
+          PORT=8080 node server.js > apex-server.log 2>&1 &
+          echo $! > apex-server.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/health > health.json; then exit 0; fi
+            sleep 1
+          done
+          cat apex-server.log
+          exit 1
+
+      - name: Verify model provenance and determinism
+        run: |
+          curl -fsS http://127.0.0.1:8080/v1/models > models.json
+          curl -fsS http://127.0.0.1:8080/v1/verify > runtime-verify.json
+          node - <<'NODE'
+          const fs=require('fs');
+          const h=JSON.parse(fs.readFileSync('health.json'));
+          const v=JSON.parse(fs.readFileSync('runtime-verify.json'));
+          if(h.status!=='ok'||!h.model_loaded) throw new Error('APEX health/model check failed');
+          if(v.deterministic!==true||v.model_loaded!==true) throw new Error('APEX determinism/model verification failed');
+          if(!v.model_hash_sha256) throw new Error('Missing model hash');
+          console.log(JSON.stringify({status:h.status,model:v.model,deterministic:v.deterministic,model_hash_sha256:v.model_hash_sha256},null,2));
+          NODE
+
+      - name: Run deterministic smoke benchmark
+        run: |
+          node apex-run.js --manifest APEX/smoke-manifest.json --output apex-smoke.jsonl
+
+      - name: Publish verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-verification
+          path: |
+            health.json
+            models.json
+            runtime-verify.json
+            apex-smoke.jsonl
+            apex-smoke.jsonl.summary.json
+            apex-server.log
+          if-no-files-found: ignore
