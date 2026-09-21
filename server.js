@@ -6,8 +6,8 @@ const path=require("path");
 const PORT=Number(process.env.PORT||8080);
 const VERSION="1.4.0";
 const started=Date.now();
-const MAX_BODY_BYTES=Number(process.env.APEX_MAX_BODY_BYTES||1048576);
-const MAX_TOKENS=Number(process.env.APEX_MAX_TOKENS||256);
+const MAX_BODY_BYTES=Math.max(1024,Number(process.env.APEX_MAX_BODY_BYTES||1048576));
+const MAX_TOKENS=Math.max(1,Number(process.env.APEX_MAX_TOKENS||256));
 const REQUEST_TIMEOUT_MS=Number(process.env.APEX_REQUEST_TIMEOUT_MS||30000);
 const CORS_ORIGIN=process.env.APEX_CORS_ORIGIN||"*";
 const MODEL_ID="apex-bootstrap-1.0";
@@ -112,7 +112,7 @@ const server=http.createServer(async(req,res)=>{
       });
     }catch(e){return json(res,503,{error:{message:String(e.message||e)}})}
   }
-  if(req.method==="OPTIONS")return json(res,204,{});
+  if(req.method==="OPTIONS"){res.statusCode=204;res.setHeader("Access-Control-Allow-Origin",CORS_ORIGIN);res.setHeader("Access-Control-Allow-Headers","Content-Type, Authorization");res.setHeader("Access-Control-Allow-Methods","GET,POST,OPTIONS");res.setHeader("Cache-Control","no-store");return res.end();}
   return json(res,404,{error:{message:"Not found"}});
 });
 server.requestTimeout=REQUEST_TIMEOUT_MS;
