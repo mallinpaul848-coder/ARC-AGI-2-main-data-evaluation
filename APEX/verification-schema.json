@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "APEX Independent Verification Record",
+  "type": "object",
+  "required": ["apex_version","benchmark","model","runtime","tests","metrics","provenance"],
+  "properties": {
+    "apex_version":{"type":"string"},
+    "benchmark":{"type":"string"},
+    "model":{"type":"string"},
+    "runtime":{"type":"object"},
+    "tests":{"type":"object","required":["count","correct","errors","timeouts"]},
+    "metrics":{"type":"object","required":["accuracy","p50_ms","p95_ms","p99_ms"]},
+    "provenance":{"type":"object","required":["manifest_sha256","outputs_sha256"]},
+    "external_verifier":{"type":["string","null"]}
+  },
+  "additionalProperties": true
+}
