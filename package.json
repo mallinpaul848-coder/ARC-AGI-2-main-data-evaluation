@@ -1,12 +1,14 @@
 {
   "name": "apex-external-verification",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": false,
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "start": "node server.js",
-    "verify": "node --check server.js && node --check apex-run.js"
+    "verify": "node --check server.js && node --check apex-run.js",
+    "verify:runtime": "node --check server.js && node --check apex-run.js && python3 -m py_compile apex-runtime.py",
+    "verify:smoke": "node apex-run.js --manifest APEX/smoke-manifest.json --output apex-smoke.jsonl"
   }
 }
