@@ -24,12 +24,13 @@ const modelBytes=fs.readFileSync(modelPath);
 const modelHash=crypto.createHash("sha256").update(modelBytes).digest("hex");
 const manifestBytes=fs.readFileSync(manifestPath);
 const manifestHash=crypto.createHash("sha256").update(manifestBytes).digest("hex");
+const modelId=String(model.model_id||model.name||path.basename(modelPath));
+const maxTokens=Math.max(1,Math.min(Number(process.env.APEX_MAX_TOKENS)||128,256));
 
-function generate(prompt,maxTokens=128){
- const limit=Math.max(1,Math.min(Number(maxTokens)||128,Number(process.env.APEX_MAX_TOKENS||256)));
+function generate(prompt){
  const p=String(prompt??"");
  const v=model.vocab,ids=[...p].map(c=>v[c]).filter(Number.isInteger).slice(-model.context),out=[];
- for(let k=0;k<limit;k++){
+ for(let k=0;k<maxTokens;k++){
   const row=model.weights[ids.length?ids[ids.length-1]:0];
   let best=0,score=-Infinity;
   for(let i=0;i<row.length;i++)if(row[i]>score){score=row[i];best=i}
@@ -51,12 +52,14 @@ const lines=tests.map(t=>{
  }catch(e){error=String(e.message||e)}
  const latency=Number(process.hrtime.bigint()-start)/1e6;
  const inputHash=crypto.createHash("sha256").update(JSON.stringify(t?.input)).digest("hex");
- return {test_id:String(t?.test_id??t?.id??inputHash.slice(0,12)),input_hash:inputHash,output,expected:String(t?.expected??""),correct,error,timeout:false,latency_ms:Number(latency.toFixed(6)),model:"apex-bootstrap-1.0",model_hash_sha256:modelHash,manifest_hash_sha256:manifestHash,runtime:"apex-run-node",hardware:process.arch,sampling:{deterministic:true},source:"APEX_MODEL_ONLY"};
+ return {test_id:String(t?.test_id??t?.id??inputHash.slice(0,12)),input_hash:inputHash,output,expected:String(t?.expected??""),correct,error,timeout:false,latency_ms:Number(latency.toFixed(6)),model:modelId,model_hash_sha256:modelHash,manifest_hash_sha256:manifestHash,runtime:"apex-run-node",hardware:process.arch,sampling:{deterministic:true},source:"APEX_MODEL_ONLY"};
 });
 fs.writeFileSync(outputPath,lines.map(x=>JSON.stringify(x)).join("\n")+(lines.length?"\n":""));
 const correct=lines.filter(x=>x.correct).length;
+const errors=lines.filter(x=>x.error!==null).length;
+const timeouts=lines.filter(x=>x.timeout===true).length;
 const lats=lines.map(x=>x.latency_ms).sort((a,b)=>a-b);
 const pct=q=>lats.length?lats[Math.min(lats.length-1,Math.ceil(q*lats.length)-1)]:null;
-const summary={schema:"APEX-VERIFICATION-1",source:"APEX_MODEL_ONLY",tests:lines.length,correct,accuracy:lines.length?correct/lines.length:null,p50_ms:pct(.50),p95_ms:pct(.95),p99_ms:pct(.99),model:"apex-bootstrap-1.0",model_hash_sha256:modelHash,manifest_hash_sha256:manifestHash,deterministic:true,generated_at:new Date().toISOString(),total_runtime_ms:Number((Number(process.hrtime.bigint()-started)/1e6).toFixed(6))};
+const summary={schema:"APEX-VERIFICATION-1",source:"APEX_MODEL_ONLY",tests:lines.length,correct,errors,timeouts,accuracy:lines.length?correct/lines.length:null,p50_ms:pct(.50),p95_ms:pct(.95),p99_ms:pct(.99),model:modelId,model_hash_sha256:modelHash,manifest_hash_sha256:manifestHash,deterministic:true,generated_at:new Date().toISOString(),total_runtime_ms:Number((Number(process.hrtime.bigint()-started)/1e6).toFixed(6))};
 fs.writeFileSync(outputPath+".summary.json",JSON.stringify(summary,null,2)+"\n");
 console.log(JSON.stringify(summary,null,2));
