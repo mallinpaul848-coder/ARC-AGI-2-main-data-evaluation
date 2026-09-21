@@ -1,0 +1,36 @@
+{
+  "product": "APEX LLM AI",
+  "state": "RECOVERY_MANIFEST_READY",
+  "historical_artifacts": [
+    {
+      "filename": "APEX_LLM_AI_INDEPENDENT_LAUNCH_DETERMINISTIC.tar.gz",
+      "artifact_id": "apex-deterministic",
+      "historical_records": {
+        "deterministic_test": "1000/1000 identical responses for 17 x 19",
+        "expected_answer": 323
+      }
+    },
+    {
+      "filename": "APEX_INDEPENDENT_FIX1.tar.gz",
+      "historical_sha256": "50fcea95fea1ea507708622312318bad8672f4b61b725fa4c0f36a9cc06f5464",
+      "historical_records": {
+        "self_test": "7/7",
+        "inference_test": "500/500",
+        "p99_ms": 2.318,
+        "trained_foundation_model_attached": false
+      }
+    },
+    {
+      "filename": "APEX_LLM_AUTONOMOUS_BACKEND.tar.gz",
+      "historical_records": {
+        "interfaces": ["/api/chat", "/api/web", "/api/benchmark", "/api/improve"]
+      }
+    }
+  ],
+  "verification_policy": {
+    "historical_values_are_not_current_measurements": true,
+    "exact_archive_required_for_reproduction": true,
+    "independent_evaluator_required_for_independent_verification": true,
+    "benchmark_operator_required_for_official_leaderboard_status": true
+  }
+}
