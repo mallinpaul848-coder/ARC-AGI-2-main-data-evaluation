@@ -1,1 +1,12 @@
-{"name":"apex-external-verification","version":"1.0.0","private":false,"engines":{"node":">=20"},"scripts":{"start":"node server.js"}}
+{
+  "name": "apex-external-verification",
+  "version": "1.1.0",
+  "private": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "verify": "node --check server.js && node --check apex-run.js"
+  }
+}
