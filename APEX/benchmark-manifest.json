@@ -1,0 +1,9 @@
+{
+  "product": "APEX LLM AI",
+  "suite": "APEX Independent Verification Core",
+  "version": "1.0.0",
+  "measurement_boundaries": ["local_deterministic", "backend", "external"],
+  "required_metrics": ["accuracy", "errors", "timeouts", "p50_ms", "p95_ms", "p99_ms"],
+  "official_leaderboard_claim_allowed": false,
+  "external_result_required": true
+}
