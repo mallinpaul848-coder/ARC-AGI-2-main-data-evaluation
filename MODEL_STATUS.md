@@ -1,15 +1,19 @@
 # APEX Model Status
 
-APEX now includes an executable local APEXMODEL1 bootstrap artifact at `models/apex-bootstrap.apex.json` and a server path that loads it directly without a hosted inference provider.
-
-## Verified repository state
+## Current state
 
 - Local model artifact: present
 - Model format: APEXMODEL1
-- API/runtime boundary: connected to the local artifact
-- Hosted inference dependency: none in the checked-in runtime path
-- Frontier-scale capability: **not established**
+- Local inference path: connected
+- Provider dependency in checked-in runtime: none
+- Verification path: model-only
+- Provenance: SHA-256 model and manifest hashes
+- Determinism probe: implemented
+- Benchmark accuracy: **not yet established**
+- Frontier capability: **not established**
+- Official ARC-AGI leaderboard result: **not established**
 
-The bootstrap model is intentionally small and deterministic. It proves that the repository contains an actual model artifact and that the API can be wired to APEX-owned local inference.
+The bootstrap model is intentionally small. It proves the repository contains an executable model artifact and a local inference path. It should not be marketed as a frontier model.
 
-A larger trained checkpoint is still required for any frontier capability claim or meaningful ARC-AGI-2 leaderboard submission.
+## Next capability milestone
+Replace the bootstrap checkpoint with a substantially trained APEX checkpoint, then run frozen benchmark suites through the same model-only execution path. Preserve per-task outputs and hashes so an independent evaluator can reproduce the result.
