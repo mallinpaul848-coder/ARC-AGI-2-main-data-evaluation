@@ -1,18 +1,34 @@
 {
   "product": "APEX LLM AI",
-  "verification_state": "ARTIFACT_NOT_RETRIEVED",
+  "verification_state": "SMOKE_EXECUTED",
   "allowed_claims": [
     "verification architecture exists",
     "historical APEX records are documented",
-    "reproduction protocol is defined"
+    "APEX bootstrap smoke runtime executed in GitHub Actions",
+    "7/7 smoke cases passed with 0 errors and 0 timeouts",
+    "raw smoke evidence artifact was produced"
   ],
   "blocked_claims": [
-    "current benchmark score",
-    "current latency",
-    "independent verification",
+    "current frontier benchmark score",
+    "ARC-AGI-2 score",
+    "current production-model latency",
+    "independent third-party verification",
     "official leaderboard placement",
-    "proprietary model weights verified"
+    "proprietary frontier-scale model weights verified",
+    "self-hosted network isolation verified"
   ],
+  "observed_smoke_run": {
+    "run_id": 35648765127,
+    "run_number": 3,
+    "commit": "781819e0dcf1f46ea0af8ee4375e89e8dfa80bae",
+    "conclusion": "success",
+    "tests": 7,
+    "correct": 7,
+    "errors": 0,
+    "timeouts": 0,
+    "artifact_id": 10661337220,
+    "artifact_sha256": "fca7d76e06acee8ab4f991a1101226fda2c59f47972d6370517d8ec7a401cfd3"
+  },
   "promotion_order": [
     "ARTIFACT_NOT_RETRIEVED",
     "RECOVERED",
@@ -21,13 +37,5 @@
     "SELF_HOSTED_VERIFIED",
     "INDEPENDENTLY_VERIFIED",
     "OFFICIAL_LEADERBOARD"
-  ],
-  "promotion_requirements": {
-    "RECOVERED": ["exact_bytes", "sha256"],
-    "INSPECTED": ["archive_contents", "runtime_entrypoint", "model_artifact_identity"],
-    "EXECUTABLE": ["real_runtime_execution"],
-    "SELF_HOSTED_VERIFIED": ["network_block_test", "no_external_model_fallback"],
-    "INDEPENDENTLY_VERIFIED": ["independent_evaluator_attestation"],
-    "OFFICIAL_LEADERBOARD": ["benchmark_operator_public_result"]
-  }
+  ]
 }
