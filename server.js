@@ -11,6 +11,9 @@ const MAX_TOKENS=Math.max(1,Math.min(Number(process.env.APEX_MAX_TOKENS||256),25
 const REQUEST_TIMEOUT_MS=Math.max(1000,Number(process.env.APEX_REQUEST_TIMEOUT_MS||30000));
 const CORS_ORIGIN=process.env.APEX_CORS_ORIGIN||"*";
 const MODEL_PATH=process.env.APEX_MODEL||path.join(__dirname,"models","apex-trained-128-transition-v2.apex.json");
+const TRANSFORMER_CHECKPOINT=process.env.APEX_TRANSFORMER_CHECKPOINT||"";
+const PYTHON_BIN=process.env.APEX_PYTHON||"python3";
+let transformer=null,transformerError=null;
 
 let model=null,modelError=null,MODEL_ID=null;
 try{
@@ -35,6 +38,25 @@ function json(res,status,obj){
  res.setHeader("Access-Control-Allow-Headers","Content-Type, Authorization");
  res.setHeader("Access-Control-Allow-Methods","GET,POST,OPTIONS");
  res.end(JSON.stringify(obj));
+}
+function startTransformer(){
+ if(!TRANSFORMER_CHECKPOINT)return;
+ try{
+  const cp=require("child_process").spawn(PYTHON_BIN,[path.join(__dirname,"apex-transformer-worker.py"),TRANSFORMER_CHECKPOINT],{stdio:["pipe","pipe","pipe"]});
+  let buf="",pending=[];
+  cp.stdout.on("data",d=>{buf+=d.toString();let i;while((i=buf.indexOf("\n"))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);const p=pending.shift();if(p){try{p.resolve(JSON.parse(line))}catch(e){p.reject(e)}}}});
+  cp.stderr.on("data",d=>{transformerError=d.toString().trim()||transformerError});
+  cp.on("error",e=>{transformerError=String(e.message||e);transformer=null});
+  cp.on("exit",(code)=>{if(code!==0)transformerError=transformerError||("worker exited "+code);transformer=null});
+  transformer={cp,pending};
+ }catch(e){transformerError=String(e.message||e)}
+}
+function transformerRequest(req){
+ return new Promise((resolve,reject)=>{
+  if(!transformer)return reject(new Error("TRANSFORMER_UNAVAILABLE"));
+  transformer.pending.push({resolve,reject});
+  transformer.cp.stdin.write(JSON.stringify(req)+"\n",e=>{if(e){const p=transformer.pending.pop();if(p)p.reject(e)}});
+ });
 }
 function modelHash(){
  try{return crypto.createHash("sha256").update(fs.readFileSync(MODEL_PATH)).digest("hex")}
@@ -96,6 +118,7 @@ function serveStatic(res,filePath){
   return true;
  }catch{return false}
 }
+startTransformer();
 const server=http.createServer(async(req,res)=>{
   if(req.method==="GET"){
     const pathname=(req.url||"/").split("?")[0];
@@ -104,7 +127,7 @@ const server=http.createServer(async(req,res)=>{
     if((safe==="/index.html"||safe.startsWith("/frontend/")) && serveStatic(res,path.join(__dirname,rel))) return;
   }
  if(req.method==="OPTIONS"){res.statusCode=204;res.setHeader("Access-Control-Allow-Origin",CORS_ORIGIN);res.setHeader("Access-Control-Allow-Headers","Content-Type, Authorization");res.setHeader("Access-Control-Allow-Methods","GET,POST,OPTIONS");res.setHeader("Cache-Control","no-store");return res.end();}
- if(req.url==="/health"&&req.method==="GET")return json(res,model?200:503,{status:model?"ok":"degraded",service:"APEX",version:VERSION,model_loaded:!!model,model_error:modelError,model:MODEL_ID,model_hash_sha256:modelHash(),uptime_ms:Date.now()-started});
+ if(req.url==="/health"&&req.method==="GET")return json(res,(model||transformer)?200:503,{status:(model||transformer)?"ok":"degraded",service:"APEX",version:VERSION,model_loaded:!!model,transformer_loaded:!!transformer,model_error:modelError,transformer_error:transformerError,model:MODEL_ID,transformer_checkpoint:TRANSFORMER_CHECKPOINT||null,model_hash_sha256:modelHash(),uptime_ms:Date.now()-started});
  if(req.url==="/v1/models"&&req.method==="GET")return json(res,model?200:503,{object:"list",data:model?[{id:MODEL_ID,object:"model",owned_by:"APEX",format:"APEXMODEL1",hash_sha256:modelHash()}]:[]});
  if(req.url==="/v1/verify"&&req.method==="GET"){try{return json(res,model?200:503,verify())}catch(e){return json(res,503,{error:{message:String(e.message||e)}})}}
  if(req.url==="/v1/chat/completions"&&req.method==="POST"){
