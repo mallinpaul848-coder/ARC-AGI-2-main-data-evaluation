@@ -227,14 +227,18 @@ def save_checkpoint(model, optimizer, step, model_cfg, train_cfg, out_dir, rank,
     torch.save(payload, tmp)
     os.replace(tmp, final)
     manifest = out / f"checkpoint-{step}.json"
+    import hashlib
+    checkpoint_sha256 = hashlib.sha256(final.read_bytes()).hexdigest()
     manifest.write_text(json.dumps({
         "format": payload["format"],
         "step": step,
         "model_config": asdict(model_cfg),
         "training_config": asdict(train_cfg),
         "checkpoint": str(final),
+        "checkpoint_sha256": checkpoint_sha256,
         "parameters": sum(p.numel() for p in state.parameters()),
-        "data_sha256": __import__("hashlib").sha256(Path(data_path).read_bytes()).hexdigest(),
+        "data_sha256": hashlib.sha256(Path(data_path).read_bytes()).hexdigest(),
+        "torch_version": torch.__version__,
     }, indent=2) + "\n", encoding="utf-8")
 
 
@@ -298,6 +302,11 @@ def main():
                 print(json.dumps({"step": step, "loss": running, "world_size": world}))
             if step % train_cfg.save_interval == 0:
                 save_checkpoint(model, optimizer, step, model_cfg, train_cfg, args.out, rank, args.data)
+
+        # A release/training run must always leave a final checkpoint,
+        # even when max_steps is not an exact multiple of save_interval.
+        if step > 0:
+            save_checkpoint(model, optimizer, step, model_cfg, train_cfg, args.out, rank, args.data)
     finally:
         cleanup_distributed()
 
