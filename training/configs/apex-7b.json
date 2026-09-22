@@ -1,0 +1,11 @@
+{
+  "vocab_size": 32768,
+  "hidden_size": 4096,
+  "num_layers": 32,
+  "num_heads": 32,
+  "num_kv_heads": 8,
+  "intermediate_size": 11008,
+  "max_seq_len": 8192,
+  "rope_theta": 10000.0,
+  "dropout": 0.0
+}
