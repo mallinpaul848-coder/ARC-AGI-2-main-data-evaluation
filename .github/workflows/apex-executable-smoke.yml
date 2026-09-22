@@ -24,11 +24,31 @@ jobs:
           node-version: 20
       - name: Execute APEX smoke benchmark
         run: node apex-run.js --manifest APEX/smoke-manifest.json --output apex-smoke-results.jsonl
-      - name: Validate seven cases
+      - name: Validate executable evidence
         run: |
-          node -e "const fs=require('fs');const x=fs.readFileSync('apex-smoke-results.jsonl','utf8').trim().split('\\n').map(JSON.parse);if(x.length!==7||x.some(t=>!t.correct))process.exit(1);console.log(JSON.stringify({count:x.length,correct:x.filter(t=>t.correct).length,errors:x.filter(t=>t.error).length},null,2))"
+          node - <<'NODE'
+          const fs=require('fs');
+          const lines=fs.readFileSync('apex-smoke-results.jsonl','utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
+          if(lines.length!==7) throw new Error(`expected 7 results, got ${lines.length}`);
+          if(lines.some(t=>t.error!==null)) throw new Error('one or more smoke cases errored');
+          if(lines.some(t=>typeof t.latency_ms!=='number' || !Number.isFinite(t.latency_ms))) throw new Error('invalid latency evidence');
+          if(lines.some(t=>t.sampling?.deterministic!==true)) throw new Error('deterministic flag missing');
+          if(lines.some(t=>typeof t.model_hash_sha256!=='string' || t.model_hash_sha256.length!==64)) throw new Error('model hash missing');
+          if(lines.some(t=>typeof t.manifest_hash_sha256!=='string' || t.manifest_hash_sha256.length!==64)) throw new Error('manifest hash missing');
+          console.log(JSON.stringify({
+            count:lines.length,
+            correct:lines.filter(t=>t.correct).length,
+            accuracy:lines.filter(t=>t.correct).length/lines.length,
+            max_latency_ms:Math.max(...lines.map(t=>t.latency_ms)),
+            model_hash_sha256:lines[0].model_hash_sha256,
+            manifest_hash_sha256:lines[0].manifest_hash_sha256,
+            deterministic:lines.every(t=>t.sampling?.deterministic===true)
+          },null,2));
+          NODE
       - name: Preserve raw evidence
         uses: actions/upload-artifact@v4
         with:
           name: apex-smoke-evidence
-          path: apex-smoke-results.jsonl
+          path: |
+            apex-smoke-results.jsonl
+            apex-smoke-results.jsonl.summary.json
