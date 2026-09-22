@@ -1,0 +1,3 @@
+APEX LLM AI independent model training smoke test.
+APEX owns the frontend, backend, inference runtime, model artifacts, verification and evaluation pipeline.
+This text is only for deterministic engineering smoke tests, not production training data.
