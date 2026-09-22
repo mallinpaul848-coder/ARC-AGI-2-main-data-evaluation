@@ -4,7 +4,7 @@ const fs=require("fs");
 const path=require("path");
 
 const PORT=Number(process.env.PORT||8080);
-const VERSION="2.0.0";
+const VERSION="2.1.0";
 const started=Date.now();
 const MAX_BODY_BYTES=Math.max(1024,Number(process.env.APEX_MAX_BODY_BYTES||1048576));
 const MAX_TOKENS=Math.max(1,Math.min(Number(process.env.APEX_MAX_TOKENS||256),256));
@@ -77,19 +77,23 @@ function generate(prompt,maxTokens=MAX_TOKENS){
  }
  return out.join("");
 }
-function verify(){
+async function verify(){
  const prompt="APEX deterministic verification probe";
+ if(transformer){
+  const t0=process.hrtime.bigint(),a=await transformerRequest({op:"generate",prompt,max_tokens:32}),t1=process.hrtime.bigint(),b=await transformerRequest({op:"generate",prompt,max_tokens:32}),t2=process.hrtime.bigint();
+  if(!a.ok||!b.ok)throw new Error(a.error||b.error||"TRANSFORMER_VERIFY_FAILED");
+  const x=a.text||"",y=b.text||"";
+  return {
+   service:"APEX",version:VERSION,source:"APEX_TRANSFORMER_LOCAL",deterministic:x===y,
+   model_loaded:true,model:TRANSFORMER_CHECKPOINT,model_hash_sha256:crypto.createHash("sha256").update(fs.readFileSync(TRANSFORMER_CHECKPOINT)).digest("hex"),
+   probe_hash_sha256:crypto.createHash("sha256").update(prompt).digest("hex"),
+   output_hash_sha256:crypto.createHash("sha256").update(x).digest("hex"),probe_output:x,
+   first_latency_ms:Number((Number(t1-t0)/1e6).toFixed(6)),repeat_latency_ms:Number((Number(t2-t1)/1e6).toFixed(6)),
+   note:"Verifies local Transformer loading, provenance, repeatability and latency; it does not establish benchmark accuracy or leaderboard status."
+  };
+ }
  const t0=process.hrtime.bigint(),a=generate(prompt),t1=process.hrtime.bigint(),b=generate(prompt),t2=process.hrtime.bigint();
- return {
-  service:"APEX",version:VERSION,source:"APEX_MODEL_ONLY",deterministic:a===b,
-  model_loaded:!!model,model:MODEL_ID,model_hash_sha256:modelHash(),
-  probe_hash_sha256:crypto.createHash("sha256").update(prompt).digest("hex"),
-  output_hash_sha256:crypto.createHash("sha256").update(a).digest("hex"),
-  probe_output:a,
-  first_latency_ms:Number((Number(t1-t0)/1e6).toFixed(6)),
-  repeat_latency_ms:Number((Number(t2-t1)/1e6).toFixed(6)),
-  note:"Verifies loading, provenance, repeatability and latency; it does not establish benchmark accuracy or leaderboard status."
- };
+ return {service:"APEX",version:VERSION,source:"APEX_MODEL_ONLY",deterministic:a===b,model_loaded:!!model,model:MODEL_ID,model_hash_sha256:modelHash(),probe_hash_sha256:crypto.createHash("sha256").update(prompt).digest("hex"),output_hash_sha256:crypto.createHash("sha256").update(a).digest("hex"),probe_output:a,first_latency_ms:Number((Number(t1-t0)/1e6).toFixed(6)),repeat_latency_ms:Number((Number(t2-t1)/1e6).toFixed(6)),note:"Verifies loading, provenance, repeatability and latency; it does not establish benchmark accuracy or leaderboard status."};
 }
 function readBody(req){
  return new Promise((resolve,reject)=>{
@@ -128,15 +132,24 @@ const server=http.createServer(async(req,res)=>{
   }
  if(req.method==="OPTIONS"){res.statusCode=204;res.setHeader("Access-Control-Allow-Origin",CORS_ORIGIN);res.setHeader("Access-Control-Allow-Headers","Content-Type, Authorization");res.setHeader("Access-Control-Allow-Methods","GET,POST,OPTIONS");res.setHeader("Cache-Control","no-store");return res.end();}
  if(req.url==="/health"&&req.method==="GET")return json(res,(model||transformer)?200:503,{status:(model||transformer)?"ok":"degraded",service:"APEX",version:VERSION,model_loaded:!!model,transformer_loaded:!!transformer,model_error:modelError,transformer_error:transformerError,model:MODEL_ID,transformer_checkpoint:TRANSFORMER_CHECKPOINT||null,model_hash_sha256:modelHash(),uptime_ms:Date.now()-started});
- if(req.url==="/v1/models"&&req.method==="GET")return json(res,model?200:503,{object:"list",data:model?[{id:MODEL_ID,object:"model",owned_by:"APEX",format:"APEXMODEL1",hash_sha256:modelHash()}]:[]});
- if(req.url==="/v1/verify"&&req.method==="GET"){try{return json(res,model?200:503,verify())}catch(e){return json(res,503,{error:{message:String(e.message||e)}})}}
+ if(req.url==="/v1/models"&&req.method==="GET"){
+  const data=[];
+  if(model)data.push({id:MODEL_ID,object:"model",owned_by:"APEX",format:"APEXMODEL1",hash_sha256:modelHash()});
+  if(transformer){
+   let hash=null;try{hash=crypto.createHash("sha256").update(fs.readFileSync(TRANSFORMER_CHECKPOINT)).digest("hex")}catch{}
+   data.push({id:TRANSFORMER_CHECKPOINT,object:"model",owned_by:"APEX",format:"APEX-TRANSFORMER-1",hash_sha256:hash});
+  }
+  return json(res,data.length?200:503,{object:"list",data});
+}
+ if(req.url==="/v1/verify"&&req.method==="GET"){try{return json(res,(model||transformer)?200:503,await verify())}catch(e){return json(res,503,{error:{message:String(e.message||e)}})}}
  if(req.url==="/v1/chat/completions"&&req.method==="POST"){
   let body;try{body=await readBody(req)}catch(e){const msg=String(e.message||e);return json(res,msg==="REQUEST_BODY_TOO_LARGE"?413:408,{error:{message:msg}})}
   let x;try{x=JSON.parse(body||"{}")}catch{return json(res,400,{error:{message:"INVALID_JSON"}})}
   if(!Array.isArray(x.messages)||x.messages.length===0)return json(res,400,{error:{message:"MESSAGES_REQUIRED"}});
   const last=x.messages[x.messages.length-1],p=typeof last?.content==="string"?last.content:"";
   if(!p)return json(res,400,{error:{message:"MESSAGE_CONTENT_REQUIRED"}});
-  if(x.model&&x.model!==MODEL_ID)return json(res,400,{error:{message:"MODEL_NOT_AVAILABLE",model:x.model,available_models:[MODEL_ID]}});
+  const availableModels=[];if(model)availableModels.push(MODEL_ID);if(transformer)availableModels.push(TRANSFORMER_CHECKPOINT);
+  if(x.model&&!availableModels.includes(x.model))return json(res,400,{error:{message:"MODEL_NOT_AVAILABLE",model:x.model,available_models:availableModels}});
   try{
    if(transformer){
     const t0=process.hrtime.bigint();
