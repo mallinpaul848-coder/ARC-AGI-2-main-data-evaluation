@@ -83,7 +83,26 @@ function readBody(req){
   req.on("error",e=>{clearTimeout(timer);fail(e)});
  });
 }
+function serveStatic(res,filePath){
+ try{
+  const ext=path.extname(filePath);
+  const types={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json; charset=utf-8"};
+  const data=fs.readFileSync(filePath);
+  res.statusCode=200;
+  res.setHeader("Content-Type",types[ext]||"application/octet-stream");
+  res.setHeader("Cache-Control","no-store");
+  res.setHeader("X-Content-Type-Options","nosniff");
+  res.end(data);
+  return true;
+ }catch{return false}
+}
 const server=http.createServer(async(req,res)=>{
+  if(req.method==="GET"){
+    const pathname=(req.url||"/").split("?")[0];
+    const safe=pathname==="/"?"/index.html":pathname;
+    const rel=safe.startsWith("/frontend/")?safe.slice(1):safe.slice(1);
+    if((safe==="/index.html"||safe.startsWith("/frontend/")) && serveStatic(res,path.join(__dirname,rel))) return;
+  }
  if(req.method==="OPTIONS"){res.statusCode=204;res.setHeader("Access-Control-Allow-Origin",CORS_ORIGIN);res.setHeader("Access-Control-Allow-Headers","Content-Type, Authorization");res.setHeader("Access-Control-Allow-Methods","GET,POST,OPTIONS");res.setHeader("Cache-Control","no-store");return res.end();}
  if(req.url==="/health"&&req.method==="GET")return json(res,model?200:503,{status:model?"ok":"degraded",service:"APEX",version:VERSION,model_loaded:!!model,model_error:modelError,model:MODEL_ID,model_hash_sha256:modelHash(),uptime_ms:Date.now()-started});
  if(req.url==="/v1/models"&&req.method==="GET")return json(res,model?200:503,{object:"list",data:model?[{id:MODEL_ID,object:"model",owned_by:"APEX",format:"APEXMODEL1",hash_sha256:modelHash()}]:[]});
