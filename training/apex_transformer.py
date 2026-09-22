@@ -267,7 +267,11 @@ def main():
 
         model.train()
         step = 0
-        iterator = batches(tokens, model_cfg.max_seq_len, train_cfg.batch_size, device)
+        iterator = batches(tokens, model_cfg.max_seq_len, train_cfg.batch_size, device, rank=rank, world=world)
+        if train_cfg.grad_accumulation < 1:
+            raise ValueError("grad_accumulation must be >= 1")
+        if train_cfg.max_steps < 1:
+            raise ValueError("max_steps must be >= 1")
         while step < train_cfg.max_steps:
             optimizer.zero_grad(set_to_none=True)
             running = 0.0
@@ -275,7 +279,7 @@ def main():
                 try:
                     x, y = next(iterator)
                 except StopIteration:
-                    iterator = batches(tokens, model_cfg.max_seq_len, train_cfg.batch_size, device)
+                    iterator = batches(tokens, model_cfg.max_seq_len, train_cfg.batch_size, device, rank=rank, world=world)
                     x, y = next(iterator)
                 with torch.autocast(device_type=device.type, dtype=autocast_dtype,
                                     enabled=device.type == "cuda"):
