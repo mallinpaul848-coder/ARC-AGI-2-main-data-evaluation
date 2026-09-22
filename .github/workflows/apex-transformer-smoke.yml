@@ -1,0 +1,54 @@
+name: APEX transformer smoke
+
+on:
+  push:
+    paths:
+      - "training/**"
+      - ".github/workflows/apex-transformer-smoke.yml"
+  pull_request:
+    paths:
+      - "training/**"
+      - ".github/workflows/apex-transformer-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  transformer-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyTorch CPU
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Train deterministic smoke checkpoint
+        run: |
+          python training/apex_transformer.py             --data training/smoke.txt             --out checkpoints/ci-smoke             --model-config training/configs/apex-smoke.json             --train-config training/configs/train-smoke.json
+
+      - name: Verify checkpoint manifest
+        run: |
+          test -f checkpoints/ci-smoke/checkpoint-2.pt
+          test -f checkpoints/ci-smoke/checkpoint-2.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("checkpoints/ci-smoke/checkpoint-2.json")
+          m = json.loads(p.read_text())
+          assert m["format"] == "APEX-TRANSFORMER-1"
+          assert m["step"] == 2
+          assert m["parameters"] > 0
+          assert len(m["data_sha256"]) == 64
+          print(json.dumps(m, indent=2))
+          PY
+
+      - name: Upload checkpoint evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-transformer-smoke
+          path: checkpoints/ci-smoke/
