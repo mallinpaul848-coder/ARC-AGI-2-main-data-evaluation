@@ -138,6 +138,13 @@ const server=http.createServer(async(req,res)=>{
   if(!p)return json(res,400,{error:{message:"MESSAGE_CONTENT_REQUIRED"}});
   if(x.model&&x.model!==MODEL_ID)return json(res,400,{error:{message:"MODEL_NOT_AVAILABLE",model:x.model,available_models:[MODEL_ID]}});
   try{
+   if(transformer){
+    const t0=process.hrtime.bigint();
+    const wr=await transformerRequest({op:"generate",prompt:p,max_tokens:x.max_tokens});
+    if(!wr.ok)throw new Error(wr.error||"TRANSFORMER_INFERENCE_FAILED");
+    const content=wr.text||"";
+    return json(res,200,{id:"apex-"+crypto.randomUUID(),object:"chat.completion",model:TRANSFORMER_CHECKPOINT,choices:[{index:0,message:{role:"assistant",content},finish_reason:"stop"}],usage:{prompt_tokens:p.length,completion_tokens:content.length,total_tokens:p.length+content.length},provenance:{source:"APEX_TRANSFORMER_LOCAL",checkpoint:TRANSFORMER_CHECKPOINT,latency_ms:Number((Number(process.hrtime.bigint()-t0)/1e6).toFixed(6))}});
+   }
    const content=generate(p,x.max_tokens);
    return json(res,200,{id:"apex-"+crypto.randomUUID(),object:"chat.completion",model:MODEL_ID,choices:[{index:0,message:{role:"assistant",content},finish_reason:"stop"}],usage:{prompt_tokens:p.length,completion_tokens:content.length,total_tokens:p.length+content.length},provenance:{source:"APEX_MODEL_ONLY",model_hash_sha256:modelHash()}});
   }catch(e){return json(res,503,{error:{message:String(e.message||e)}})}
