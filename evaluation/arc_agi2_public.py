@@ -57,8 +57,11 @@ def main():
         expected=[x.get("output") for x in task["test"]]
         pred=solve(task)
         if not isinstance(pred,list) or len(pred)<1 or len(pred)>2:
-            raise RuntimeError(f"{p}: solver must return one or two outputs")
-        hit=any(exact(x,y) for x in pred for y in expected)
+            raise RuntimeError(f"{p}: solver must return one or two candidate outputs")
+        # Keep the current contract exact: one test input per task.
+        if len(expected) != 1:
+            raise RuntimeError(f"{p}: evaluator requires exactly one test input")
+        hit=any(exact(candidate, expected[0]) for candidate in pred)
         correct+=int(hit)
         total+=1
         rows.append({"file":str(p),"sha256":sha256_file(p),"correct":hit,"attempts":len(pred)})
@@ -71,7 +74,7 @@ def main():
         "tasks":total,
         "correct_tasks":correct,
         "accuracy":correct/total if total else 0.0,
-        "pass_at_2_compatible":True,
+        "pass_at_2_compatible": len(rows) > 0 and all(1 <= r["attempts"] <= 2 for r in rows),
         "elapsed_seconds":elapsed,
         "solver":"identity" if not args.solver else str(Path(args.solver)),
         "task_results":rows,
