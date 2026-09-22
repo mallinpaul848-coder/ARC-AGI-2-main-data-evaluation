@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "training/**"
+      - "server.js"
+      - "apex-transformer-worker.py"
       - ".github/workflows/apex-transformer-smoke.yml"
   pull_request:
     paths:
@@ -33,6 +35,9 @@ jobs:
 
       - name: Verify checkpoint manifest
         run: |
+          node --check server.js
+          test -f apex-transformer-worker.py
+          python -m py_compile apex-transformer-worker.py
           test -f checkpoints/ci-smoke/checkpoint-2.pt
           test -f checkpoints/ci-smoke/checkpoint-2.json
           python - <<'PY'
