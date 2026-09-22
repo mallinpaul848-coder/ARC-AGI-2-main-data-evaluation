@@ -1,0 +1,14 @@
+{
+  "model_config": "training/configs/apex-125m.json",
+  "steps": 2,
+  "batch_size": 1,
+  "grad_accum": 1,
+  "learning_rate": 0.0001,
+  "warmup_steps": 0,
+  "eval_interval": 2,
+  "save_interval": 2,
+  "seed": 1234,
+  "dtype": "float32",
+  "data": ["training/smoke.txt"],
+  "output_dir": "checkpoints/smoke"
+}
