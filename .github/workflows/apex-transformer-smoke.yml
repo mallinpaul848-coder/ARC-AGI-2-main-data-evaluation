@@ -49,6 +49,8 @@ jobs:
           assert m["step"] == 2
           assert m["parameters"] > 0
           assert len(m["data_sha256"]) == 64
+          assert len(m["checkpoint_sha256"]) == 64
+          print("checkpoint_sha256:", m["checkpoint_sha256"])
           print(json.dumps(m, indent=2))
           PY
 
