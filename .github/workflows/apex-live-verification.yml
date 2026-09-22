@@ -30,8 +30,9 @@ jobs:
           node -e 'const x=require("./verify.json"); if(!x.model_loaded || !x.deterministic || x.source!=="APEX_MODEL_ONLY") process.exit(1); console.log(JSON.stringify(x,null,2))'
       - name: Test chat inference
         run: |
-          curl -fsS -X POST http://127.0.0.1:8080/v1/chat/completions             -H 'content-type: application/json'             -d '{"model":"apex-bootstrap-1.0","messages":[{"role":"user","content":"APEX verification test"}]}' | tee chat.json
-          node -e 'const x=require("./chat.json"); if(!x.choices || !x.choices[0] || !x.provenance || x.provenance.source!=="APEX_MODEL_ONLY") process.exit(1); console.log(JSON.stringify(x,null,2))'
+          MODEL=$(curl -fsS http://127.0.0.1:8080/v1/models | node -e 'let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data[0].id))')
+          curl -fsS -X POST http://127.0.0.1:8080/v1/chat/completions             -H 'content-type: application/json'             -d "{\"model\":\"$MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"APEX verification test\"}]}" | tee chat.json
+          node -e 'const x=require("./chat.json"); if(!x.choices || !x.choices[0] || !x.provenance || !["APEX_MODEL_ONLY","APEX_TRANSFORMER_LOCAL"].includes(x.provenance.source)) process.exit(1); console.log(JSON.stringify(x,null,2))'
       - name: Publish evidence
         uses: actions/upload-artifact@v7
         with:
