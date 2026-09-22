@@ -121,6 +121,7 @@ class GQAAttention(nn.Module):
         self.k = nn.Linear(cfg.hidden_size, cfg.num_kv_heads * self.d, bias=False)
         self.v = nn.Linear(cfg.hidden_size, cfg.num_kv_heads * self.d, bias=False)
         self.o = nn.Linear(cfg.hidden_size, cfg.hidden_size, bias=False)
+        self.rope_theta = cfg.rope_theta
 
     def forward(self, x):
         b, t, _ = x.shape
@@ -128,7 +129,7 @@ class GQAAttention(nn.Module):
         k = self.k(x).view(b, t, self.kv, self.d).transpose(1, 2)
         v = self.v(x).view(b, t, self.kv, self.d).transpose(1, 2)
         pos = torch.arange(t, device=x.device)
-        q, k = rope(q, pos, 10000.0), rope(k, pos, 10000.0)
+        q, k = rope(q, pos, self.rope_theta), rope(k, pos, self.rope_theta)
         if self.kv != self.h:
             repeat = self.h // self.kv
             k, v = k.repeat_interleave(repeat, 1), v.repeat_interleave(repeat, 1)
@@ -172,16 +173,28 @@ class APEXTransformer(nn.Module):
 
 def load_tokens(path: Path, vocab_size: int):
     raw = path.read_bytes()
-    # Deterministic byte-level fallback tokenizer. A production release should
-    # replace this with a versioned APEX tokenizer and manifest.
-    return torch.tensor([b % vocab_size for b in raw], dtype=torch.long)
+    # Byte fallback is for smoke tests only. Production releases must ship
+    # a versioned tokenizer and tokenizer manifest.
+    if vocab_size < 256:
+        raise ValueError("vocab_size must be >= 256 for the byte fallback")
+    return torch.tensor(list(raw), dtype=torch.long)
 
 
-def batches(tokens, seq_len, batch_size, device, start=0):
+def learning_rate(step: int, cfg: TrainConfig):
+    if cfg.warmup_steps > 0 and step <= cfg.warmup_steps:
+        return cfg.learning_rate * step / cfg.warmup_steps
+    if cfg.max_steps <= cfg.warmup_steps:
+        return cfg.min_learning_rate
+    progress = min(1.0, max(0.0, (step - cfg.warmup_steps) / (cfg.max_steps - cfg.warmup_steps)))
+    cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
+    return cfg.min_learning_rate + (cfg.learning_rate - cfg.min_learning_rate) * cosine
+
+
+def batches(tokens, seq_len, batch_size, device, start=0, rank=0, world=1):
     usable = ((len(tokens) - start - 1) // seq_len) * seq_len
     if usable <= 0:
         raise ValueError("training corpus is too small for the configured sequence length")
-    for off in range(start, start + usable, seq_len * batch_size):
+    for off in range(start + rank * seq_len * batch_size, start + usable, seq_len * batch_size * world):
         xs, ys = [], []
         for j in range(batch_size):
             s = off + j * seq_len
@@ -193,7 +206,7 @@ def batches(tokens, seq_len, batch_size, device, start=0):
             yield torch.stack(xs).to(device), torch.stack(ys).to(device)
 
 
-def save_checkpoint(model, optimizer, step, model_cfg, train_cfg, out_dir, rank):
+def save_checkpoint(model, optimizer, step, model_cfg, train_cfg, out_dir, rank, data_path):
     if rank != 0:
         return
     out = Path(out_dir)
@@ -206,6 +219,8 @@ def save_checkpoint(model, optimizer, step, model_cfg, train_cfg, out_dir, rank)
         "training_config": asdict(train_cfg),
         "model": state.state_dict(),
         "optimizer": optimizer.state_dict(),
+        "rng_state": torch.get_rng_state(),
+        "data_path": str(data_path),
     }
     tmp = out / f"checkpoint-{step}.pt.tmp"
     final = out / f"checkpoint-{step}.pt"
@@ -219,6 +234,7 @@ def save_checkpoint(model, optimizer, step, model_cfg, train_cfg, out_dir, rank)
         "training_config": asdict(train_cfg),
         "checkpoint": str(final),
         "parameters": sum(p.numel() for p in state.parameters()),
+        "data_sha256": __import__("hashlib").sha256(Path(data_path).read_bytes()).hexdigest(),
     }, indent=2) + "\n", encoding="utf-8")
 
 
@@ -268,13 +284,16 @@ def main():
                 loss.backward()
                 running += float(loss.detach())
             torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
+            lr = learning_rate(step + 1, train_cfg)
+            for group in optimizer.param_groups:
+                group["lr"] = lr
             optimizer.step()
             step += 1
 
             if rank == 0 and (step == 1 or step % 10 == 0):
                 print(json.dumps({"step": step, "loss": running, "world_size": world}))
             if step % train_cfg.save_interval == 0:
-                save_checkpoint(model, optimizer, step, model_cfg, train_cfg, args.out, rank)
+                save_checkpoint(model, optimizer, step, model_cfg, train_cfg, args.out, rank, args.data)
     finally:
         cleanup_distributed()
 
