@@ -31,8 +31,10 @@ jobs:
       - name: Run independent GSM8K evaluation
         run: |
           mkdir -p external-eval
+          MODEL=$(curl -fsS http://127.0.0.1:8080/v1/models | python -c "import json,sys; print(json.load(sys.stdin)["data"][0]["id"])")
+          echo "Evaluating model: $MODEL"
           evalscope eval \
-            --model APEX-LM-SELF-SUSTAINED \
+            --model "$MODEL" \
             --eval-type openai_api \
             --api-url http://127.0.0.1:8080/v1 \
             --api-key local-eval-key \
