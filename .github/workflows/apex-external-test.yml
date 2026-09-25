@@ -1,0 +1,40 @@
+name: APEX External Reachability Test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  apex-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start APEX
+        run: |
+          node server.js > apex-server.log 2>&1 &
+          echo $! > apex.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/health; then break; fi
+            sleep 1
+          done
+      - name: Test APEX health
+        run: curl -fsS http://127.0.0.1:8080/health
+      - name: Test APEX model endpoint
+        run: curl -fsS http://127.0.0.1:8080/v1/models
+      - name: Test deterministic verification
+        run: |
+          curl -fsS http://127.0.0.1:8080/v1/verify | tee apex-verify.json
+          node -e 'const x=require("./apex-verify.json"); if(!x.model_loaded || x.deterministic!==true) process.exit(1); console.log(JSON.stringify(x,null,2))'
+      - name: Test chat completion
+        run: |
+          curl -fsS http://127.0.0.1:8080/v1/chat/completions             -H 'content-type: application/json'             -d '{"model":"apex-trained-128-transition-v2","messages":[{"role":"user","content":"Hello APEX"}],"max_tokens":32}' | tee apex-chat.json
+          node -e 'const x=require("./apex-chat.json"); if(!x.choices || !x.choices[0]) process.exit(1); console.log(x.choices[0].message.content)'
+      - name: Save evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-external-reachability-evidence
+          path: |
+            apex-verify.json
+            apex-chat.json
+            apex-server.log
