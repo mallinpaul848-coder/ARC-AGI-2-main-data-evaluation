@@ -1,0 +1,50 @@
+name: APEX Independent EvalScope Benchmark
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  evalscope-gsm8k:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install independent evaluator
+        run: pip install --disable-pip-version-check 'evalscope[service]'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Start APEX
+        run: |
+          node server.js > apex-eval-server.log 2>&1 &
+          echo $! > apex.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8080/health; then exit 0; fi
+            sleep 1
+          done
+          cat apex-eval-server.log
+          exit 1
+      - name: Run independent GSM8K evaluation
+        run: |
+          mkdir -p external-eval
+          evalscope eval \
+            --model APEX-LM-SELF-SUSTAINED \
+            --eval-type openai_api \
+            --api-url http://127.0.0.1:8080/v1 \
+            --api-key local-eval-key \
+            --datasets gsm8k \
+            --limit 5 \
+            --work-dir ./external-eval
+      - name: Publish independent evaluation artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: apex-independent-evalscope-gsm8k
+          retention-days: 30
+          path: |
+            external-eval/**
+            apex-eval-server.log
