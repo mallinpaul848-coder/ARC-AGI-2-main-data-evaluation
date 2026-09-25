@@ -31,7 +31,7 @@ jobs:
       - name: Run independent GSM8K evaluation
         run: |
           mkdir -p external-eval
-          MODEL=$(curl -fsS http://127.0.0.1:8080/v1/models | python -c "import json,sys; print(json.load(sys.stdin)["data"][0]["id"])")
+          MODEL=$(curl -fsS http://127.0.0.1:8080/v1/models | python -c 'import json,sys; print(json.load(sys.stdin)["data"][0]["id"])')
           echo "Evaluating model: $MODEL"
           evalscope eval \
             --model "$MODEL" \
