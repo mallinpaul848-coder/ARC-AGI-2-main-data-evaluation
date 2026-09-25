@@ -1,0 +1,20 @@
+name: APEX External Validation
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  external-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run external validator against production APEX
+        run: node eval/apex-external-validator.js
+        env:
+          APEX_URL: https://apex-public-external-eval-mallinpaul848-4176.vercel.app
+      - name: Upload external result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-external-validation-result
+          path: apex-external-result.json
